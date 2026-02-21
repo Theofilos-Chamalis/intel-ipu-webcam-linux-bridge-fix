@@ -1,4 +1,4 @@
-# Intel IPU Webcam Linux Bridge 📷🐧
+# Intel IPU Webcam Linux Bridge
 
 A plug-and-play GStreamer and `v4l2loopback` bridge to make modern Intel MIPI webcams (IPU6 / IPU7) work with legacy Linux applications like Zoom, MS Teams, Discord, and Slack.
 
