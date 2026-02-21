@@ -39,12 +39,12 @@ This repository automates the creation of a "Virtual Webcam" on your system. It 
    git clone [https://github.com/YOUR_USERNAME/intel-ipu-webcam-linux-bridge.git](https://github.com/YOUR_USERNAME/intel-ipu-webcam-linux-bridge.git)
    cd intel-ipu-webcam-linux-bridge
    ```
-2. Run the installer script:
+2. Run the installer script. (Do NOT run this with `sudo`! The script will ask for your password automatically when it needs it):
    ```bash
    chmod +x install.sh
    ./install.sh
    ```
-3. Reboot your system to allow the new kernel modules to load.
+3. Reboot your system to allow the new kernel modules to fully load and create the `/dev/video35` device.
 
 ---
 
