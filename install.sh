@@ -1,15 +1,22 @@
 #!/bin/bash
 
+# 1. ROOT CHECK: Prevent the user from running the whole script as sudo
+if [ "$EUID" -eq 0 ]; then
+  echo "❌ Please DO NOT run this script as root (do not use 'sudo ./install.sh')."
+  echo "Run it normally as './install.sh'. It will ask for your sudo password when needed."
+  exit 1
+fi
+
 echo "🚀 Starting Intel IPU Webcam Bridge Installer..."
 
-# 1. Detect Distribution and Install Dependencies
+# 2. Detect Distribution and Install Dependencies
 if [ -f /etc/arch-release ]; then
     echo "📦 Detected Arch/Manjaro. Installing dependencies..."
     sudo pacman -S --needed v4l2loopback-dkms v4l2loopback-utils gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad libcamera libnotify
 elif [ -f /etc/debian_version ]; then
     echo "📦 Detected Ubuntu/Debian. Installing dependencies..."
     sudo apt update
-    sudo apt install -y v4l2loopback-dkms v4l2loopback-utils gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad libcamera-tools libnotify-bin
+    sudo apt install -y v4l2loopback-dkms v4l2loopback-utils gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libcamera libcamera-tools libnotify-bin
 elif [ -f /etc/fedora-release ]; then
     echo "📦 Detected Fedora. Installing dependencies..."
     sudo dnf install -y v4l2loopback gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-bad-free libcamera-tools libnotify
@@ -18,11 +25,12 @@ else
     exit 1
 fi
 
-# 2. Configure Kernel Module to load on boot
+# 3. Configure Kernel Module to load on boot
 echo "⚙️ Configuring v4l2loopback kernel module..."
 echo "v4l2loopback" | sudo tee /etc/modules-load.d/v4l2loopback.conf > /dev/null
 
-# 3. Create the Systemd Service to initialize the virtual device on boot
+# 4. Create the Systemd Service to initialize the virtual device on boot
+# (Added ExecStartPre to prevent race conditions!)
 echo "⚙️ Creating virtual device systemd service..."
 cat <<EOF | sudo tee /etc/systemd/system/virtual-webcam.service > /dev/null
 [Unit]
@@ -31,6 +39,7 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
+ExecStartPre=/sbin/modprobe v4l2loopback
 ExecStart=/usr/bin/v4l2loopback-ctl add -n "Virtual Hardware Camera" /dev/video35
 RemainAfterExit=yes
 
@@ -38,15 +47,23 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
+sudo systemctl daemon-reload
 sudo systemctl enable --now virtual-webcam.service
 
-# 4. Copy the toggle script to the user's local bin
+# 5. Copy the toggle script to the user's local bin
+# (Ensuring the source file actually exists first)
+if [ ! -f "toggle-camera.sh" ]; then
+    echo "❌ Error: 'toggle-camera.sh' not found in the current directory."
+    echo "Please make sure you cloned the whole repository."
+    exit 1
+fi
+
 echo "📂 Installing toggle script..."
 mkdir -p "$HOME/.local/bin"
 cp toggle-camera.sh "$HOME/.local/bin/intel-webcam-toggle.sh"
 chmod +x "$HOME/.local/bin/intel-webcam-toggle.sh"
 
-# 5. Create the Desktop Application Shortcut
+# 6. Create the Desktop Application Shortcut
 echo "🖥️ Creating Desktop entry..."
 mkdir -p "$HOME/.local/share/applications"
 cat << EOF > "$HOME/.local/share/applications/intel-camera-toggle.desktop"
@@ -64,4 +81,5 @@ EOF
 # Force desktop environment to update its application list
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
-echo "✅ Installation Complete! You may need to reboot your system for the kernel modules to fully load."
+echo "✅ Installation Complete!"
+echo "⚠️ IMPORTANT: Please REBOOT your computer now to ensure the kernel drivers load correctly."
